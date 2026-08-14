@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DSA Booking Admin Report</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif;background:#f4f6f8;color:#17202a}
+.container{max-width:1200px;margin:0 auto;padding:32px 18px}
+.card{background:#fff;border:1px solid #e2e6ea;border-radius:16px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.05)}
+h1{margin:0 0 8px;font-size:28px}.sub{margin:0 0 22px;color:#667085;line-height:1.45}
+.warning{margin:0 0 18px;padding:12px 14px;border-radius:10px;background:#fff7ed;color:#9a3412;border:1px solid #fed7aa;display:none}.warning.show{display:block}
+.login{display:block}.login.hide{display:none}.admin{display:none}.admin.show{display:block}
+label{display:block;font-size:14px;font-weight:700;margin:12px 0 6px}
+input{width:100%;padding:11px 12px;border:1px solid #cfd5dc;border-radius:9px;font-size:15px}
+button{border:0;background:#111827;color:#fff;border-radius:9px;padding:11px 16px;cursor:pointer;font-weight:700}
+button.secondary{background:#475467}button.light{background:#eef2f7;color:#17202a;border:1px solid #d0d5dd}
+.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:16px 0}.actions input{max-width:320px}
+.summary{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:12px;margin:16px 0 20px}.stat{background:#f8fafc;border:1px solid #eaecf0;border-radius:12px;padding:14px}.stat-title{font-size:13px;color:#667085;margin-bottom:6px}.stat-value{font-size:24px;font-weight:800}
+.table-wrap{overflow:auto;border:1px solid #eaecf0;border-radius:12px}table{width:100%;border-collapse:collapse;min-width:780px}th,td{padding:12px 14px;border-bottom:1px solid #eaecf0;text-align:left;font-size:14px}th{background:#f8fafc;color:#344054;font-weight:800;position:sticky;top:0}tr:last-child td{border-bottom:0}.empty{padding:22px;text-align:center;color:#667085}.message{display:none;margin-top:14px;padding:12px;border-radius:9px}.error{background:#fef3f2;color:#b42318}.success{background:#ecfdf3;color:#067647}.note{font-size:13px;color:#667085;margin-top:18px;line-height:1.45}
+@media(max-width:720px){.summary{grid-template-columns:repeat(2,minmax(140px,1fr))}.container{padding:18px 10px}.card{padding:18px}.actions input{max-width:none}}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="card">
+    <h1>DSA Booking Admin Report</h1>
+    <p class="sub">View all submitted bookings, filter records, and export the booking list to CSV.</p>
+
+    <div id="setupWarning" class="warning">Supabase is not configured yet. Add your Supabase URL and anon public key in the script section.</div>
+
+    <div id="login" class="login">
+      <label for="adminPass">Admin passcode</label>
+      <input id="adminPass" type="password" placeholder="Enter admin passcode">
+      <div class="actions">
+        <button id="loginButton">Open report</button>
+      </div>
+      <div class="note">This passcode is a simple front-end gate only. Do not publish this page publicly unless you are comfortable with your current Supabase RLS settings.</div>
+    </div>
+
+    <div id="admin" class="admin">
+      <div class="actions">
+        <button id="refreshButton">Refresh</button>
+        <button id="exportButton" class="secondary">Export CSV</button>
+        <input id="searchBox" placeholder="Search name, email, date, or time">
+        <button id="logoutButton" class="light">Lock report</button>
+      </div>
+
+      <div class="summary">
+        <div class="stat"><div class="stat-title">Total bookings</div><div id="totalBookings" class="stat-value">0</div></div>
+        <div class="stat"><div class="stat-title">Unique emails</div><div id="uniqueEmails" class="stat-value">0</div></div>
+        <div class="stat"><div class="stat-title">Booked dates</div><div id="bookedDates" class="stat-value">0</div></div>
+        <div class="stat"><div class="stat-title">Latest booking</div><div id="latestBooking" class="stat-value" style="font-size:15px">-</div></div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Time</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Slot ID</th>
+              <th>Created at</th>
+            </tr>
+          </thead>
+          <tbody id="reportBody">
+            <tr><td colspan="6" class="empty">No data loaded yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="message" class="message"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Replace these values with the same Supabase project settings used in your booking page.
+const SUPABASE_URL = "https://qyzbsszjqtbqszlhiear.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_uZl18w50OBVxc6vjno-I4w_pG8jDlCQ";
+
+// Change this passcode before publishing. This is only a simple front-end gate, not strong security.
+const ADMIN_PASSCODE = "C0rusc@nt";
+
+let db = null;
+let bookings = [];
+let filteredBookings = [];
+
+const isConfigured = SUPABASE_URL.startsWith("https://") && !SUPABASE_ANON_KEY.includes("PASTE_");
+if(isConfigured){
+  db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}else{
+  document.getElementById("setupWarning").classList.add("show");
+}
+
+function formatDate(value){
+  if(!value) return "";
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"}).format(new Date(year, month - 1, day));
+}
+
+function formatDateTime(value){
+  if(!value) return "";
+  return new Intl.DateTimeFormat(undefined,{dateStyle:"medium",timeStyle:"short"}).format(new Date(value));
+}
+
+function show(text,type){
+  const message = document.getElementById("message");
+  message.textContent = text;
+  message.className = "message " + type;
+  message.style.display = "block";
+}
+
+function clearMessage(){
+  document.getElementById("message").style.display = "none";
+}
+
+async function loadBookings(){
+  clearMessage();
+  if(!db){ show("Supabase is not configured yet.", "error"); return; }
+
+  const { data, error } = await db
+    .from("bookings")
+    .select("slot_id, slot_date, slot_time, name, email, created_at")
+    .order("slot_date", { ascending: true })
+    .order("slot_time", { ascending: true });
+
+  if(error){
+    console.error(error);
+    show("Could not load bookings. Check RLS select policy and Supabase credentials.", "error");
+    return;
+  }
+
+  bookings = data || [];
+  applyFilter();
+  show("Report loaded successfully.", "success");
+}
+
+function applyFilter(){
+  const query = document.getElementById("searchBox").value.trim().toLowerCase();
+  filteredBookings = bookings.filter(row => {
+    const text = [row.slot_date,row.slot_time,row.name,row.email,row.slot_id,row.created_at].join(" ").toLowerCase();
+    return text.includes(query);
+  });
+  renderReport();
+}
+
+function renderReport(){
+  const body = document.getElementById("reportBody");
+  body.innerHTML = "";
+
+  document.getElementById("totalBookings").textContent = bookings.length;
+  document.getElementById("uniqueEmails").textContent = new Set(bookings.map(row => row.email)).size;
+  document.getElementById("bookedDates").textContent = new Set(bookings.map(row => row.slot_date)).size;
+  document.getElementById("latestBooking").textContent = bookings.length
+    ? formatDateTime([...bookings].sort((a,b) => new Date(b.created_at) - new Date(a.created_at))[0].created_at)
+    : "-";
+
+  if(filteredBookings.length === 0){
+    body.innerHTML = `<tr><td colspan="6" class="empty">No bookings found.</td></tr>`;
+    return;
+  }
+
+  filteredBookings.forEach(row => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${formatDate(row.slot_date)}</td>
+      <td>${row.slot_time || ""}</td>
+      <td>${escapeHtml(row.name || "")}</td>
+      <td>${escapeHtml(row.email || "")}</td>
+      <td>${escapeHtml(row.slot_id || "")}</td>
+      <td>${formatDateTime(row.created_at)}</td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function escapeHtml(value){
+  return String(value).replace(/[&<>'"]/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[char]));
+}
+
+function exportCsv(){
+  const rows = [["Date","Time","Name","Email","Slot ID","Created at"]];
+  filteredBookings.forEach(row => {
+    rows.push([
+      row.slot_date || "",
+      row.slot_time || "",
+      row.name || "",
+      row.email || "",
+      row.slot_id || "",
+      row.created_at || ""
+    ]);
+  });
+
+  const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = "dsa-bookings-report.csv";
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById("loginButton").onclick = () => {
+  const passcode = document.getElementById("adminPass").value;
+  if(passcode !== ADMIN_PASSCODE){ show("Incorrect admin passcode.", "error"); return; }
+  document.getElementById("login").classList.add("hide");
+  document.getElementById("admin").classList.add("show");
+  loadBookings();
+};
+
+document.getElementById("adminPass").addEventListener("keydown", event => {
+  if(event.key === "Enter") document.getElementById("loginButton").click();
+});
+
+document.getElementById("refreshButton").onclick = loadBookings;
+document.getElementById("exportButton").onclick = exportCsv;
+document.getElementById("logoutButton").onclick = () => {
+  document.getElementById("admin").classList.remove("show");
+  document.getElementById("login").classList.remove("hide");
+  document.getElementById("adminPass").value = "";
+};
+document.getElementById("searchBox").addEventListener("input", applyFilter);
+</script>
+</body>
+</html>
