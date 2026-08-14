@@ -217,6 +217,7 @@ function validSlot(id){
 }
 document.getElementById("confirm").onclick = async () => {
   const name = document.getElementById("name").value.trim();
+  const country = document.getElementById("country").value.trim();
   const email = document.getElementById("email").value.trim().toLowerCase();
   const confirmButton = document.getElementById("confirm");
   if(!db){ show("Supabase is not configured yet.", "error"); return; }
