@@ -68,7 +68,7 @@ button.secondary{background:#475467}button.light{background:#eef2f7;color:#17202
 </tr>
           </thead>
           <tbody id="reportBody">
-            <tr><td colspan="6" class="empty">No data loaded yet.</td></tr>
+            <tr><td colspan="7" class="empty">No data loaded yet.</td></tr>
           </tbody>
         </table>
       </div>
@@ -162,7 +162,7 @@ function renderReport(){
     : "-";
 
   if(filteredBookings.length === 0){
-    body.innerHTML = `<tr><td colspan="6" class="empty">No bookings found.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" class="empty">No bookings found.</td></tr>`;
     return;
   }
 
