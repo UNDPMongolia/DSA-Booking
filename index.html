@@ -106,7 +106,7 @@ function toTime(minutes){
 }
 function generateTimes(start, end){
   const times = [];
-  for(let minutes = toMinutes(start); minutes < toMinutes(end); minutes += 5){
+  for(let minutes = toMinutes(start); minutes < toMinutes(end); minutes += 1){
     times.push(toTime(minutes));
   }
   return times;
