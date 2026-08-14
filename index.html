@@ -221,7 +221,7 @@ document.getElementById("confirm").onclick = async () => {
   const email = document.getElementById("email").value.trim().toLowerCase();
   const confirmButton = document.getElementById("confirm");
   if(!db){ show("Supabase is not configured yet.", "error"); return; }
-  if(!selected || !name || !email){ show("Please enter your name and email.", "error"); return; }
+  if(!selected || !name || !country || !email){ show("Please enter your name and email.", "error"); return; }
   if(!validSlot(selected.id)){ show("Invalid slot selected.", "error"); return; }
   if(bookedSlots.has(selected.id)){ show("Sorry, that slot has already been booked. Please choose another.", "error"); selected = null; render(); return; }
   confirmButton.disabled = true;
@@ -230,6 +230,7 @@ document.getElementById("confirm").onclick = async () => {
     slot_date: selected.key,
     slot_time: selected.time,
     name: name,
+    country: country,
     email: email
   });
   confirmButton.disabled = false;
