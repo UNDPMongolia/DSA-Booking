@@ -168,14 +168,15 @@ function renderReport(){
 
   filteredBookings.forEach(row => {
     const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${formatDate(row.slot_date)}</td>
-      <td>${row.slot_time || ""}</td>
-      <td>${escapeHtml(row.name || "")}</td>
-      <td>${escapeHtml(row.email || "")}</td>
-      <td>${escapeHtml(row.slot_id || "")}</td>
-      <td>${formatDateTime(row.created_at)}</td>
-    `;
+  tr.innerHTML = `
+  <td>${formatDate(row.slot_date)}</td>
+  <td>${row.slot_time || ""}</td>
+  <td>${escapeHtml(row.name || "")}</td>
+  <td>${escapeHtml(row.country || "")}</td>
+  <td>${escapeHtml(row.email || "")}</td>
+  <td>${escapeHtml(row.slot_id || "")}</td>
+  <td>${formatDateTime(row.created_at)}</td>
+`;
     body.appendChild(tr);
   });
 }
@@ -185,16 +186,17 @@ function escapeHtml(value){
 }
 
 function exportCsv(){
-  const rows = [["Date","Time","Name","Email","Slot ID","Created at"]];
+  const rows = [["Date","Time","Name","Country","Email","Slot ID","Created at"]];
   filteredBookings.forEach(row => {
     rows.push([
-      row.slot_date || "",
-      row.slot_time || "",
-      row.name || "",
-      row.email || "",
-      row.slot_id || "",
-      row.created_at || ""
-    ]);
+  row.slot_date || "",
+  row.slot_time || "",
+  row.name || "",
+  row.country || "",
+  row.email || "",
+  row.slot_id || "",
+  row.created_at || ""
+]);
   });
 
   const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g,'""')}"`).join(",")).join("\n");
